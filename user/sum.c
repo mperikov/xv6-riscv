@@ -55,7 +55,7 @@ main(int argc, char* argv[])
 
   int a = atoi(buf);
   int b = atoi(buf + pos + 1);
-  printf("%d\n", a + b);
+  printf("%u\n", add(a, b));
 
   exit(0);
 }
