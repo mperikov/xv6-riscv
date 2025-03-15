@@ -3,9 +3,14 @@
 #include "user/user.h"
 
 void write_buf(int fd, char* buf, int size) {
-  if (write(fd, buf, size) == -1) {
-    fprintf(2, "write error\n");
-    exit(1);
+  while (size > 0) {
+    int out_size = write(fd, buf, size);
+      if (out_size < 0) {
+      fprintf(2, "write error\n");
+      exit(1);
+    }
+    size -= out_size;
+    buf += out_size;
   }
 }
 
@@ -18,20 +23,40 @@ main(int argc, char* argv[])
 
   int pid = fork();
   if (pid == 0) {
-    close(0);
-    dup(pipefd[0]);
-    close(pipefd[0]);
-    close(pipefd[1]);
+    if (close(0) < 0) {
+      fprintf(2, "close error\n");
+      exit(1);
+    }
+    
+    if (dup(pipefd[0]) < 0) {
+      fprintf(2, "dup error\n");
+      exit(1);
+    }
+
+    if (close(pipefd[0]) < 0) {
+      fprintf(2, "close error\n");
+      exit(1);
+    }
+    if (close(pipefd[1]) < 0) {
+      fprintf(2, "close error\n");
+      exit(1);
+    }
 
     char* argv[2];
     argv[0] = "wc";
     argv[1] = 0;
-    exec("/wc", argv);
+    
+    if (exec("/wc", argv) < 0) {
+      fprintf(2, "exec error\n");
+      exit(1);
+    }
   }
   else if (pid > 0) {
-    close(pipefd[0]);
+    if (close(pipefd[0]) < 0) {
+      fprintf(2, "close error\n");
+      exit(1);
+    }
 
-    // Вывод блоками по 20 байтов
     char buf[20];
     int k = 0;
     for (int i = 1; i < argc; i++) {
@@ -52,9 +77,11 @@ main(int argc, char* argv[])
     if (k != 0) {
       write_buf(pipefd[1], buf, k);
     }
-    //
 
-    close(pipefd[1]);
+    if (close(pipefd[1]) < 0) {
+      fprintf(2, "close error\n");
+      exit(1);
+    }
 
     int exit_code;
     wait(&exit_code);
