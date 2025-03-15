@@ -17,7 +17,10 @@ main(int argc, char* argv[])
 
     printf("parent %d\nchild %d\n", cur_pid, pid);
 
-    kill(pid);
+    if (kill(pid) != 0) {
+      fprintf(2, "kill error\n");
+      exit(1);
+    }
     pid = wait(&exit_code);
 
     printf("child %d\nexit code %d\n", pid, exit_code);
