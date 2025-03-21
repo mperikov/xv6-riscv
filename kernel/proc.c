@@ -693,3 +693,72 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+uint64
+sys_ps_listinfo(void) {
+  uint64 plist;
+  int lim;
+  argaddr(0, &plist);
+  argint(1, &lim);
+
+  int p_count = 0;
+  struct proc* p;
+  struct procinfo pi;
+  for (p = proc; p < &proc[NPROC]; ++p) {
+
+    acquire(&p->lock);
+
+    if (p->state == USED || p->state == UNUSED) {
+      release(&p->lock);
+      continue;
+    }
+
+    p_count++;
+
+    if (plist == 0 || p_count > lim) {
+      release(&p->lock);
+      break;
+    }
+
+    pi.pid = p->pid;
+    strncpy(pi.name, p->name, sizeof(p->name));
+
+    switch (p->state) {
+      case SLEEPING:
+        pi.state = PSLEEPING;
+        break;
+      case RUNNABLE:
+        pi.state = PRUNNABLE;
+        break;
+      case RUNNING:
+        pi.state = PRUNNING;
+        break;
+      case ZOMBIE:
+        pi.state = PZOMBIE;
+        break;
+      default:
+
+    }
+
+    acquire(&wait_lock);
+
+    if (p->parent) {
+      pi.parent_pid = p->parent->pid;
+      strncpy(pi.parent_name, p->parent->name, sizeof(p->parent->name));
+    }
+    else {
+      pi.parent_pid = -1;
+      strncpy(pi.parent_name, "", sizeof(p->parent->name));
+    }
+
+    release(&wait_lock);
+    release(&p->lock);
+
+    if (copyout(myproc()->pagetable, plist + (p_count -1) * sizeof(pi), (char*)&pi, sizeof(pi)) < 0)
+      return -1;
+
+  }
+
+  return p_count;
+}
