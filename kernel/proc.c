@@ -744,8 +744,10 @@ sys_ps_listinfo(void) {
     acquire(&wait_lock);
 
     if (p->parent) {
+      acquire(&p->parent->lock);
       pi.parent_pid = p->parent->pid;
       strncpy(pi.parent_name, p->parent->name, sizeof(p->parent->name));
+      release(&p->parent->lock);
     }
     else {
       pi.parent_pid = -1;
