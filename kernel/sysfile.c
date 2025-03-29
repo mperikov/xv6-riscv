@@ -16,6 +16,7 @@
 #include "file.h"
 #include "fcntl.h"
 
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -501,5 +502,69 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+uint64
+sys_mutex(void)
+{
+  uint64 fdmutex;
+  struct file* rf;
+  int fd;
+  struct proc *p = myproc();
+
+  argaddr(0, &fdmutex);
+  rf = mutexalloc();
+  if (rf == 0)
+    return -1;
+
+  if ((fd = fdalloc(rf)) < 0) {
+    fileclose(rf);
+    return -1;
+  }
+  if (copyout(p->pagetable, fdmutex, (char*)&fd, sizeof(fd)) < 0) {
+    p->ofile[fd] = 0;
+    fileclose(rf);
+    return -1;
+  }
+  return 0;
+}
+
+uint64
+sys_mutex_lock(void)
+{
+  struct file* f;
+
+  if (argfd(0, 0, &f) < 0)
+    return -1;
+
+  if (f->type != FD_MUTEX)
+    return -1;
+
+  if (holdingsleep(f->mutex))
+    return -1;
+
+  acquiresleep(f->mutex);
+  return 0;
+}
+
+uint64
+sys_mutex_unlock(void)
+{
+  struct file* f;
+
+  if (argfd(0, 0, &f) < 0)
+    return -1;
+
+  if (f->type != FD_MUTEX)
+    return -1;
+
+  if (!holdingsleep(f->mutex))
+    return -1;
+
+  if (f->mutex->pid != myproc()->pid)
+    return -1;
+
+  releasesleep(f->mutex);
   return 0;
 }
