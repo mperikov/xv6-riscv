@@ -13,7 +13,8 @@
 struct {
   uint seed, a, b;
   uint64 cnt;
-  struct spinlock lock;
+  struct spinlock lock_urandom;
+  struct spinlock lock_nullstat;
 } mydev;
 
 
@@ -29,25 +30,28 @@ int mydev_write(int user_src, uint64 src, int n, short minor) {
     break;
 
   case URANDOM:
+    
+    if (n != sizeof(mydev.seed))
+      break;
 
-    acquire(&mydev.lock);
+    acquire(&mydev.lock_urandom);
 
     if (either_copyin((char*)&mydev.seed, user_src, src, n) == -1)
       ret = 0;
     else
       ret = n;
 
-    release(&mydev.lock);
+    release(&mydev.lock_urandom);
 
     break;
 
   case NULLSTAT:
 
-    acquire(&mydev.lock);
+    acquire(&mydev.lock_nullstat);
 
     mydev.cnt += n;
 
-    release(&mydev.lock);
+    release(&mydev.lock_nullstat);
 
     ret = n;
 
@@ -94,7 +98,10 @@ int mydev_read(int user_dst, uint64 dst, int n, short minor) {
       break;
     case URANDOM:
 
-      acquire(&mydev.lock);
+      if (n != sizeof(mydev.seed))
+        break;
+
+      acquire(&mydev.lock_urandom);
     
       mydev.seed *= A;
       mydev.seed += B;
@@ -104,7 +111,7 @@ int mydev_read(int user_dst, uint64 dst, int n, short minor) {
       else
         ret = n;
 
-      release(&mydev.lock);
+      release(&mydev.lock_urandom);
       break;
 
     case NULLSTAT:
@@ -112,14 +119,14 @@ int mydev_read(int user_dst, uint64 dst, int n, short minor) {
       if (n != sizeof(mydev.cnt))
         break;
 
-      acquire(&mydev.lock);
+      acquire(&mydev.lock_nullstat);
 
       if (either_copyout(user_dst, dst, (char*)&mydev.cnt, n) == -1)
         ret = 0;
       else
         ret = n;
 
-      release(&mydev.lock);
+      release(&mydev.lock_nullstat);
       break;
 
     default:
@@ -137,7 +144,8 @@ mydevinit(void) {
   mydev.seed = 30;
   mydev.cnt = 0;
 
-  initlock(&mydev.lock, "mydev");  initlock(&mydev.lock, "mydev");
+  initlock(&mydev.lock_urandom, "mydev_urandom");
+  initlock(&mydev.lock_nullstat, "mydev_nullstat");
 
   devsw[MYDEV].read = mydev_read;
   devsw[MYDEV].write = mydev_write;

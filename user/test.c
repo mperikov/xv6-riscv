@@ -54,23 +54,33 @@ void test_urandom() {
 
 
   int fd = open("/dev/urandom", O_RDWR);
-  int res = read(fd, buf, 2);
+  int res = read(fd, buf, 5);
 
-  printf("Test urandom write: ");
-  assert(res == 2);
+  printf("Test urandom read wrong size: ");
+  assert(res == -1);
 
-  int tmp1 = buf[0], tmp2 = buf[1];
+  res = read(fd, buf, 4);
 
-  uint64 seed = 30;
+  printf("Test urandom read: ");
+  assert(res == 4);
+
+  int tmp[4];
+  for (int i = 0; i < 4;i++)
+    tmp[i] = buf[i];
+
+  uint seed = 30;
   res = write(fd, &seed, sizeof(seed));
 
   printf("Test urandom read: ");
-  assert(res == 8);
+  assert(res == 4);
 
-  res = read(fd, buf, 2);
+  res = read(fd, buf, 4);
 
   printf("Test urandom write after seed reset: ");
-  assert(buf[0] == tmp1 && buf[1] == tmp2 && res == 2);
+  int fl = 1;
+  for (int i = 0; i < 4; i++)
+    fl &= tmp[i] == buf[i];
+  assert(fl && res == 4);
   
   close(fd);
 }
