@@ -45,6 +45,8 @@ kvmmake(void)
 
   // allocate and map a kernel stack for each process.
   proc_mapstacks(kpgtbl);
+
+  kvmmap(kpgtbl, RTC_LOW, RTC_LOW, PGSIZE, PTE_R);
   
   return kpgtbl;
 }
